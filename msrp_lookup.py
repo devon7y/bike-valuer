@@ -27,7 +27,7 @@ CACHE = ROOT / "msrp_cache.json"
 IMAGE_CACHE = ROOT / "msrp_image_cache.json"
 IMAGE_BYTES_DIR = ROOT / "listing_images"
 
-MODEL = "gpt-4.1-mini"
+MODEL = "gpt-5.4-mini"
 
 SYSTEM = """You are a bicycle pricing assistant. Given a Facebook Marketplace listing's title and description, do all of the following:
 

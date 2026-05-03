@@ -112,21 +112,40 @@ def main():
 
   <h3>2. Identifying the bike &amp; its original MSRP</h3>
   <p>
-    Each listing's title + description goes to an LLM (OpenAI <code>gpt-4.1-mini</code> with web
-    search). It does three things:
+    Each listing's title + description goes to an LLM (OpenAI <code>gpt-5.4-mini</code> with the
+    <code>web_search_preview</code> tool enabled). In a single call it:
   </p>
   <ul>
     <li>Decides if the listing is actually a complete bike (filters out parts, accessories, exercise machines, kids' balance bikes, bait listings).</li>
-    <li>Extracts brand, model, year, and bike type from the description (the description is the truth — titles on FB are often clickbait).</li>
-    <li>Searches the web for the bike's original MSRP at launch in CAD.</li>
+    <li>Extracts brand, model, year, and bike type from the description (the <em>description</em> is the truth — FB titles are often clickbait).</li>
+    <li>Searches the web for the bike's original MSRP at launch in CAD. If only USD pricing is found, it converts at <code>1.35 USD → CAD</code> (fixed, not pulled live).</li>
+    <li>Self-reports a <code>confidence</code> rating: <code>high</code> / <code>medium</code> / <code>low</code> / <code>unknown</code>.</li>
   </ul>
   <p>
     For listings the text pass can't price (generic "blue mountain bike", no decals in the
-    title/description), a second pass attaches the listing's primary photo and asks the LLM
-    to read decals, frame silhouette, and drivetrain from the image, then look up an MSRP.
+    title/description), a <strong>second image pass</strong> attaches the listing's primary photo and
+    asks the LLM to read decals, head-badges, frame silhouette, drivetrain, and brake type
+    off the image, then look up an MSRP.
   </p>
 
-  <h3>3. The depreciation model (how "Predicted" and "Residual %" are computed)</h3>
+  <h3>3. How accurate are the MSRPs?</h3>
+  <p>
+    The LLM tags every result with a confidence rating. Treat them roughly like this:
+  </p>
+  <ul>
+    <li><strong>high</strong> — Brand+model+year extracted unambiguously, MSRP found on a manufacturer page or major retailer. Accurate to within ~5–10%.</li>
+    <li><strong>medium</strong> — Brand+model identified but a tier or year is assumed, or the source is a forum / archived page. Accurate to within ~15–25%.</li>
+    <li><strong>low</strong> — No specific model, just a generic estimate ("similar Mongoose 20" BMX", "no-name foldable mountain bike"). Sometimes off by 2× either direction.</li>
+  </ul>
+  <p>Honest caveats:</p>
+  <ul>
+    <li>The LLM rarely says "I don't know" cleanly. It's <em>told</em> to skip MSRP for vague generic listings, but in practice still puts a number on plenty of them. The <code>llm_notes</code> field flags when the figure is just an estimate.</li>
+    <li>Web search isn't audited — the right page found, but the trim/year may not match. For mid-range bikes a ±$300–$800 mismatch is plausible.</li>
+    <li>USD→CAD is fixed at 1.35; older or future runs drift from the live rate.</li>
+    <li>Image-pass MSRPs lean lower-confidence: most are no-name department-store frames where the price is "what bikes that look like this typically cost new" — useful for coarse deal-finding, not precise valuation.</li>
+  </ul>
+
+  <h3>4. The depreciation model (how "Predicted" and "Residual %" are computed)</h3>
   <p>
     A single ridge regression on log-transformed prices:
   </p>
@@ -147,7 +166,7 @@ def main():
     the deepest discounts relative to the model.
   </p>
 
-  <h3>4. What "Residual" really means &amp; caveats</h3>
+  <h3>5. What "Residual" really means &amp; caveats</h3>
   <ul>
     <li>The model is fit and scored on the same data (in-sample). It tells you "cheaper than its peers in this scrape," not a held-out forecast.</li>
     <li>MSRPs from the LLM are best-effort. For old or no-name bikes the LLM is asked to mark <code>confidence=low</code>; those still get a residual but it's noisier.</li>
