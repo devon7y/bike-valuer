@@ -72,7 +72,8 @@ def main():
   tr:hover td {{ background: #fafbfc; }}
   td.num {{ text-align: right; font-variant-numeric: tabular-nums; }}
   td.title {{ max-width: 320px; }}
-  td.title a {{ color: #1d1d1f; text-decoration: none; }}
+  td.title a {{ color: #1a4ed8; text-decoration: none; }}
+  td.title a:visited {{ color: #6b21a8; }}
   td.title a:hover {{ text-decoration: underline; }}
   .residual-good {{ color: #15803d; font-weight: 600; }}
   .residual-bad {{ color: #b91c1c; }}
