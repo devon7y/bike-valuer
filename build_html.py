@@ -80,6 +80,16 @@ def main():
   .reset-btn {{ padding: 6px 12px; border: 1px solid #d0d0d0; background: #fff; border-radius: 6px; cursor: pointer; font-size: 13px; }}
   .reset-btn:hover {{ background: #f5f5f5; }}
   .empty {{ padding: 40px; text-align: center; color: #999; font-style: italic; }}
+  details.about {{ background: #fff; border-bottom: 1px solid #e0e0e0; padding: 12px 24px; font-size: 13px; line-height: 1.55; color: #333; }}
+  details.about summary {{ cursor: pointer; font-weight: 600; color: #1d1d1f; padding: 4px 0; user-select: none; }}
+  details.about summary:hover {{ color: #0070c9; }}
+  details.about[open] summary {{ margin-bottom: 8px; }}
+  details.about h3 {{ font-size: 13px; margin: 14px 0 4px; color: #1d1d1f; }}
+  details.about p {{ margin: 4px 0; }}
+  details.about code {{ background: #f0f0f3; padding: 1px 5px; border-radius: 3px; font-size: 12px; }}
+  details.about ul {{ margin: 4px 0 4px 18px; padding: 0; }}
+  details.about li {{ margin: 2px 0; }}
+  details.about .note {{ color: #666; font-style: italic; }}
 </style>
 </head>
 <body>
@@ -87,6 +97,68 @@ def main():
   <h1>Bike Valuer</h1>
   <div class="sub">Facebook Marketplace gravel-search dump near Sherwood Park, AB. Ranked by depreciation-model residual: most-negative = best value.</div>
 </header>
+
+<details class="about">
+  <summary>How these listings are generated &amp; how the deals are scored ▾</summary>
+
+  <h3>1. Where the listings come from</h3>
+  <p>
+    Facebook Marketplace search for the term <code>gravel bike</code> centred on Sherwood Park, AB
+    (location ID <code>104044399631602</code>) with a <strong>30 km radius</strong>. FB's own
+    search ranker decides what's "relevant" — that's why the table also contains mountain
+    bikes, BMX, e-bikes, kids' bikes, etc. The script just keeps whatever FB returned.
+  </p>
+
+  <h3>2. Identifying the bike &amp; its original MSRP</h3>
+  <p>
+    Each listing's title + description goes to an LLM (OpenAI <code>gpt-4.1-mini</code> with web
+    search). It does three things:
+  </p>
+  <ul>
+    <li>Decides if the listing is actually a complete bike (filters out parts, accessories, exercise machines, kids' balance bikes, bait listings).</li>
+    <li>Extracts brand, model, year, and bike type from the description (the description is the truth — titles on FB are often clickbait).</li>
+    <li>Searches the web for the bike's original MSRP at launch in CAD.</li>
+  </ul>
+  <p>
+    For listings the text pass can't price (generic "blue mountain bike", no decals in the
+    title/description), a second pass attaches the listing's primary photo and asks the LLM
+    to read decals, frame silhouette, and drivetrain from the image, then look up an MSRP.
+  </p>
+
+  <h3>3. The depreciation model (how "Predicted" and "Residual %" are computed)</h3>
+  <p>
+    A single ridge regression on log-transformed prices:
+  </p>
+  <p>
+    <code>log(price) = a · log(MSRP) + b · log(age + 1) + brand + bike_type + condition + groupset</code>
+  </p>
+  <ul>
+    <li><strong>log(MSRP)</strong> — the dominant feature. A $4k-MSRP bike sells for roughly 2× a $2k-MSRP bike, all else equal. Coefficient typically lands around 0.7–1.0.</li>
+    <li><strong>log(age+1)</strong> — depreciation. Most value is lost in the first 2-3 years and the curve flattens after; <code>log</code> captures that shape. Coefficient is negative.</li>
+    <li><strong>Brand / bike type / condition / groupset</strong> — categorical "shifters." Each value gets its own learned offset (e.g. <code>like_new</code> bumps the predicted price up, <code>fair</code> bumps it down). Categories appearing fewer than 2 times are pooled to avoid overfitting to one-offs.</li>
+    <li><strong>Why logs?</strong> Bike prices span $200 → $15k and depreciation is multiplicative ("loses ~20% per year"), not additive. Logs turn that into a straight line the model can fit.</li>
+    <li><strong>Why ridge?</strong> A small penalty (<code>alpha=1.0</code>) on coefficient size keeps rare brands/groupsets from getting wild offsets when only 2-3 listings exist for them.</li>
+  </ul>
+  <p>
+    The model predicts each bike's price, and <strong>Residual %</strong> = (asking − predicted) / predicted × 100.
+    Most-negative = priced furthest below what the curve says a bike of that MSRP/age/brand/type/condition/groupset
+    <em>should</em> sell for. The table sorts ascending by this column, so the top rows are
+    the deepest discounts relative to the model.
+  </p>
+
+  <h3>4. What "Residual" really means &amp; caveats</h3>
+  <ul>
+    <li>The model is fit and scored on the same data (in-sample). It tells you "cheaper than its peers in this scrape," not a held-out forecast.</li>
+    <li>MSRPs from the LLM are best-effort. For old or no-name bikes the LLM is asked to mark <code>confidence=low</code>; those still get a residual but it's noisier.</li>
+    <li>Listings the LLM couldn't price (no MSRP found, or flagged as not-a-bike) appear in the table with em-dashes — they aren't ranked.</li>
+    <li>Some listings are bait — title says one bike, description/photo describes another. The LLM is prompted to ignore the title when it conflicts with the description, but a few will still slip through.</li>
+  </ul>
+
+  <p class="note">
+    Pipeline source: <a href="https://github.com/devon7y/bike-valuer" target="_blank" rel="noopener">github.com/devon7y/bike-valuer</a>.
+    Run: scrape → parse → LLM enrich (text + image fallback) → ridge model → this page.
+  </p>
+</details>
 
 <div class="filters">
   <div class="filter">
