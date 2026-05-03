@@ -41,8 +41,10 @@ def main():
         })
 
     bike_types = sorted({r["type"] for r in rows if r["type"]})
+    conditions = sorted({r["condition"] for r in rows if r["condition"]})
     data_json = json.dumps(rows, separators=(",", ":"))
     types_json = json.dumps(bike_types)
+    conditions_json = json.dumps(conditions)
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -112,6 +114,10 @@ def main():
     <select id="typeSel" multiple></select>
   </div>
   <div class="filter">
+    <label>Condition (cmd/ctrl-click multi)</label>
+    <select id="condSel" multiple></select>
+  </div>
+  <div class="filter">
     <label>Search title/brand/model</label>
     <input type="text" id="searchBox" placeholder="e.g. gravel, kona, carbon">
   </div>
@@ -144,12 +150,20 @@ def main():
 <script>
 const DATA = {data_json};
 const TYPES = {types_json};
+const CONDITIONS = {conditions_json};
 
 const typeSel = document.getElementById('typeSel');
 TYPES.forEach(t => {{
   const o = document.createElement('option');
   o.value = t; o.textContent = t;
   typeSel.appendChild(o);
+}});
+
+const condSel = document.getElementById('condSel');
+CONDITIONS.forEach(c => {{
+  const o = document.createElement('option');
+  o.value = c; o.textContent = c;
+  condSel.appendChild(o);
 }});
 
 let sortKey = 'residual';
@@ -176,6 +190,7 @@ function getFilters() {{
     maxResid: parseFloat(document.getElementById('maxResid').value),
     minYear: parseFloat(document.getElementById('minYear').value) || 0,
     types: Array.from(typeSel.selectedOptions).map(o => o.value),
+    conditions: Array.from(condSel.selectedOptions).map(o => o.value),
     search: document.getElementById('searchBox').value.toLowerCase().trim(),
   }};
 }}
@@ -187,6 +202,7 @@ function applyFilters(rows, f) {{
     if (!Number.isNaN(f.maxResid) && r.residual !== null && r.residual > f.maxResid) return false;
     if (f.minYear && (r.year === null || r.year < f.minYear)) return false;
     if (f.types.length && !f.types.includes(r.type)) return false;
+    if (f.conditions.length && !f.conditions.includes(r.condition)) return false;
     if (f.search) {{
       const hay = (r.title + ' ' + r.brand + ' ' + r.model + ' ' + r.type).toLowerCase();
       if (!hay.includes(f.search)) return false;
@@ -258,12 +274,14 @@ document.querySelectorAll('th').forEach(th => {{
   document.getElementById(id).addEventListener('input', render);
 }});
 typeSel.addEventListener('change', render);
+condSel.addEventListener('change', render);
 
 document.getElementById('resetBtn').addEventListener('click', () => {{
   ['minPrice','maxPrice','minResid','maxResid','minYear','searchBox'].forEach(id => {{
     document.getElementById(id).value = '';
   }});
   Array.from(typeSel.options).forEach(o => o.selected = false);
+  Array.from(condSel.options).forEach(o => o.selected = false);
   sortKey = 'residual'; sortDir = 1;
   render();
 }});
