@@ -1,0 +1,21 @@
+# Auth / secrets
+storage_state.json
+.env
+.env.*
+
+# Raw scraped data + caches (FB content; not for redistribution)
+listings/
+listing_images/
+*.csv
+msrp_cache.json
+msrp_image_cache.json
+
+# Logs
+*.log
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+bikes.html
